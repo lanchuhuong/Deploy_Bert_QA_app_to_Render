@@ -75,6 +75,7 @@ def get_relevant_texts(df):
             sentence = df["sentences"].iloc[i][j]
             results += [(i, sentence, distance)]
     results = sorted(results, key=lambda x: x[2], reverse=True)
+    del model_embedding
 
     texts = []
     for idx, sentence, distance in results:
@@ -134,6 +135,7 @@ if pdf_files:
     with st.spinner("processing pdf..."):
         df = extract_text_from_pdfs(pdf_files)
         context = create_context(df)
+
     question = st.text_input("Enter your questions here...")
 
     if question != "":
