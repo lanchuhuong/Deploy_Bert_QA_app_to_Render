@@ -11,9 +11,8 @@ from io import BytesIO
 
 st.title("Question-Answering Webapp")
 
-# question = st.text_input("Enter your questions here...")
 
-
+@st.cache(allow_output_mutation=True)
 def extract_text_from_pdfs(pdf_files):
     # Create an empty data frame
     df = pd.DataFrame(columns=["file", "text"])
@@ -59,11 +58,12 @@ def remove_short_sentences(df):
     return df
 
 
-def get_relevant_texts(df):
+@st.cache(allow_output_mutation=True)
+def get_relevant_texts(df, topic):
     model_embedding = SentenceTransformer("all-MiniLM-L6-v2")
-    # model_embedding.save("all-MiniLM-L6-v2")
+    model_embedding.save("all-MiniLM-L6-v2")
     cosine_threshold = 0.3  # set threshold for cosine similarity value
-    queries = ["country ranking of happiness"]  # search query
+    queries = topic  # search query
     results = []
     for i, document in enumerate(df["sentences"]):
         sentence_embeddings = model_embedding.encode(document)
@@ -87,12 +87,12 @@ def get_relevant_texts(df):
     return context
 
 
-# @st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True)
 def get_pipeline():
     modelname = "deepset/bert-base-cased-squad2"
     model_qa = BertForQuestionAnswering.from_pretrained(modelname)
-    # model_qa.save_pretrained("model-" + modelname)
-    tokenizer = AutoTokenizer.from_pretrained("tokenizer-" + modelname)
+    # model_qa.save_pretrained(modelname)
+    tokenizer = AutoTokenizer.from_pretrained("tokenizer-deepset")
     # tokenizer.save_pretrained("tokenizer-" + modelname)
     qa = pipeline("question-answering", model=model_qa, tokenizer=tokenizer)
     return qa
@@ -103,7 +103,7 @@ def answer_question(pipeline, question: str, context: str) -> Dict:
     return pipeline(input)
 
 
-# @st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True)
 def create_context(df):
     # path = "data/"
     # files = Path(path).glob("WHR+22.pdf")
@@ -113,7 +113,7 @@ def create_context(df):
     )
     df = remove_short_sentences(df)
 
-    context = get_relevant_texts(df)
+    context = get_relevant_texts(df, topic)
     return context
 
 
@@ -125,8 +125,6 @@ def start_app():
     return pipeline
 
 
-qa_pipeline = start_app()
-
 pdf_files = st.file_uploader(
     "Upload pdf files", type=["pdf"], accept_multiple_files=True
 )
@@ -134,12 +132,17 @@ pdf_files = st.file_uploader(
 if pdf_files:
     with st.spinner("processing pdf..."):
         df = extract_text_from_pdfs(pdf_files)
-        context = create_context(df)
-
+        # context = create_context(df)
+        # del df
+    topic = st.text_input("Enter the topic you want to ask here")
     question = st.text_input("Enter your questions here...")
 
     if question != "":
         # pipeline = get_pipeline()
         with st.spinner("Searching. Please hold..."):
+            context = create_context(df)
+            qa_pipeline = start_app()
             answer = answer_question(qa_pipeline, question, context)
             st.write(answer)
+        del qa_pipeline
+        del context
